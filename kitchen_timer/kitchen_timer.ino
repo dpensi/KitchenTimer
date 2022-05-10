@@ -1,7 +1,5 @@
 #include <arduino-timer.h>
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Max72xxPanel.h>
+#include <LedControl.h>
 
 // Rotary Encoder Inputs
 #define CLK 2
@@ -31,9 +29,8 @@ Timer<2> timer;
 bool play = false;
 
 // 8x8 led matrix variables
-Max72xxPanel matrix = Max72xxPanel(CS, 1, 1);
+LedControl matrix=LedControl(DIN,LM_CLK,CS,1);
 unsigned char display[8];
-
 // numbers
 const unsigned char numbers[][5] = {
   {
@@ -44,32 +41,11 @@ const unsigned char numbers[][5] = {
     B11100000  
   },
   {
-    B11000000,
+    B11100000,
     B01000000,
     B01000000,
     B01000000,
-    B11100000  
-  },
-  {
-    B11100000,
-    B00100000,
-    B11100000,
-    B10000000,
-    B11100000  
-  },
-  {
-    B11100000,
-    B00100000,
-    B11100000,
-    B00100000,
-    B11100000  
-  },
-  {
-    B10100000,
-    B10100000,
-    B11100000,
-    B00100000,
-    B00100000  
+    B11000000  
   },
   {
     B11100000,
@@ -80,30 +56,51 @@ const unsigned char numbers[][5] = {
   },
   {
     B11100000,
+    B00100000,
+    B11100000,
+    B00100000,
+    B11100000  
+  },
+  {
+    B00100000,
+    B00100000,
+    B11100000,
+    B10100000,
+    B10100000  
+  },
+  {
+    B11100000,
+    B00100000,
+    B11100000,
     B10000000,
-    B11100000,
-    B10100000,
-    B11100000  
-  },
-  {
-    B11100000,
-    B10100000,
-    B00100000,
-    B00100000,
-    B00100000  
-  },
-  {
-    B11100000,
-    B10100000,
-    B11100000,
-    B10100000,
     B11100000  
   },
   {
     B11100000,
     B10100000,
     B11100000,
+    B10000000,
+    B11100000  
+  },
+  {
     B00100000,
+    B00100000,
+    B00100000,
+    B10100000,
+    B11100000  
+  },
+  {
+    B11100000,
+    B10100000,
+    B11100000,
+    B10100000,
+    B11100000  
+  },
+  {
+    B11100000,
+    B00100000,
+    B11100000,
+    B10100000,
     B11100000  
   }
 };
@@ -132,7 +129,7 @@ void loop() {
   // Remember last CLK state
   lastStateCLK = currentStateCLK;
   // Put in a slight delay to help debounce the reading
-  delay(10);
+  delay(1);
 }
 
 void initRotaryEncoder() {
@@ -147,7 +144,9 @@ void initRotaryEncoder() {
 }
 
 void initDisplay() {
-  matrix.setIntensity(0);
+  matrix.shutdown(0,false);       //The MAX72XX is in power-saving mode on startup
+  matrix.setIntensity(0,0);      // Set the brightness to maximum value
+  matrix.clearDisplay(0);         // and clear the display
 }
 
 void initSpeaker() {
@@ -164,7 +163,7 @@ void updateCounter() {
     // Encoder is rotating CCW so decrement
     reduceCounter();
     if ( counter == 0 ) {
-      play = true;
+      play = false;
     }
   }
 }
@@ -203,11 +202,14 @@ void stopTimer() {
 }
 
 void blip() {
-  Serial.println("blip");
+  matrix.setColumn(0,7,B00000001);
 }
 
 void countdown() {
   reduceCounter();
+  if(counter == 0){
+    play = true;
+  }
 }
 
 void reduceCounter() {
@@ -238,26 +240,18 @@ int previousNumber = -1;
 void displayCounter(){
   int firstDigit = counter / 10;
   int secondDigit = counter % 10;
-  
-  for(int i =0; i < 8; i++){
-      display[i] = B00000000;
-    }
-  
+  for( int i = 0; i < 8; i++){
+    display[i] =0;
+  }
   for( int i = 0; i < 5; i++){
     display[i] |= numbers[firstDigit][i];
   }
   for( int i = 0; i < 5; i++){
     display[i] |= numbers[secondDigit][i] >> 4;
   }
-  if( counter != previousNumber ){
-    Serial.println("##################");
-    for(int i =0; i < 8; i++){
-      Serial.println(display[i], BIN);
-    }
-    Serial.println("##################");
-    previousNumber = counter;  
+  
+  for( int i = 0; i < 8; i++){
+    matrix.setColumn(0,i,display[i]); 
   }
   
-  matrix.drawBitmap(0, 0, display, 8, 8, 1);
-  matrix.write();
 }
