@@ -1,5 +1,7 @@
 #include <arduino-timer.h>
 #include <LedControl.h>
+#include <ClickEncoder.h>
+#include <TimerOne.h>
 
 // Rotary Encoder Inputs
 #define CLK 2
@@ -21,6 +23,8 @@ int counter = 0;
 int currentStateCLK;
 int lastStateCLK;
 unsigned long lastButtonPress = 0;
+ClickEncoder *encoder;
+int16_t last, value;
 
 // Time variables
 Timer<2> timer;
@@ -31,8 +35,7 @@ bool play = false;
 // 8x8 led matrix variables
 LedControl matrix=LedControl(DIN,LM_CLK,CS,1);
 unsigned char display[8];
-// numbers
-const unsigned char numbers[][5] = {
+const unsigned char numbers[][5] = { // numbers
   {
     B11100000,
     B10100000,
@@ -104,6 +107,12 @@ const unsigned char numbers[][5] = {
     B11100000  
   }
 };
+
+
+void timerIsr() {
+  encoder->service();
+}
+
 void setup() {
   Serial.begin(9600);
   initRotaryEncoder();
@@ -114,10 +123,20 @@ void setup() {
 void loop() {
   currentStateCLK = digitalRead(CLK);
   timer.tick();
+
+  counter += encoder->getValue();
+  if(counter<MIN_COUNTER) counter = MIN_COUNTER;
+  if(counter>MAX_COUNTER) counter = MAX_COUNTER;
+  if (counter != last) {
+    last = value;
+  }
+  
   if (isKnobRotated()) {
-    updateCounter();
+    if ( counter == 0 ) {
+      play = false;
+      stopTimer();
+    }
     if (play) play = false;
-    if ( counter == 0) stopTimer();
   }
 
   if ( counter > 0 ) startTimer();
@@ -129,7 +148,7 @@ void loop() {
   // Remember last CLK state
   lastStateCLK = currentStateCLK;
   // Put in a slight delay to help debounce the reading
-  delay(10);
+  delay(150);
 }
 
 void initRotaryEncoder() {
@@ -137,10 +156,17 @@ void initRotaryEncoder() {
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
   pinMode(SW, INPUT_PULLUP);
-
+    
   // Read the initial state of CLK
   lastStateCLK = digitalRead(CLK);
   currentStateCLK = digitalRead(CLK);
+
+  // init clickEncoder library
+  encoder = new ClickEncoder(DT, CLK, SW);
+  encoder->setAccelerationEnabled(true);
+  Timer1.initialize(1000);
+  Timer1.attachInterrupt(timerIsr); 
+  last = -1;
 }
 
 void initDisplay() {
@@ -151,21 +177,6 @@ void initDisplay() {
 
 void initSpeaker() {
   pinMode(BEEP, OUTPUT);
-}
-
-void updateCounter() {
-  currentStateCLK = digitalRead(CLK);
-  // If the DT state is different than the CLK state then
-  // the encoder is rotating CW so increment
-  if (digitalRead(DT) != currentStateCLK) {
-    increaseCounter();
-  } else {
-    // Encoder is rotating CCW so decrement
-    reduceCounter();
-    if ( counter == 0 ) {
-      play = false;
-    }
-  }
 }
 
 bool isKnobRotated() {
@@ -221,12 +232,6 @@ void reduceCounter() {
   }
 }
 
-void increaseCounter() {
-  if (counter + 1 <= MAX_COUNTER) {
-    counter ++;
-  }
-}
-
 void handleAlarm() {
   if (play) {
     digitalWrite(BEEP, HIGH);
@@ -234,8 +239,6 @@ void handleAlarm() {
     digitalWrite(BEEP, LOW);
   }
 }
-
-int previousNumber = -1;
 
 void displayCounter(){
   int firstDigit = counter / 10;
@@ -248,5 +251,4 @@ void displayCounter(){
     }
     matrix.setColumn(0,i,display[i]); 
   }
-  
 }
