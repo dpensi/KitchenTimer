@@ -145,7 +145,7 @@ void initRotaryEncoder() {
 
 void initDisplay() {
   matrix.shutdown(0,false);       //The MAX72XX is in power-saving mode on startup
-  matrix.setIntensity(0,0);      // Set the brightness to maximum value
+  matrix.setIntensity(0,5);       // Set the brightness to maximum value
   matrix.clearDisplay(0);         // and clear the display
 }
 
