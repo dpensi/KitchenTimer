@@ -22,9 +22,8 @@
 int counter = 0;
 int currentStateCLK;
 int lastStateCLK;
-unsigned long lastButtonPress = 0;
+unsigned long lastRotation = 0;
 ClickEncoder *encoder;
-int16_t last, value;
 
 // Time variables
 Timer<2> timer;
@@ -33,7 +32,8 @@ Timer<2> timer;
 bool play = false;
 
 // 8x8 led matrix variables
-LedControl matrix=LedControl(DIN,LM_CLK,CS,1);
+bool sleeping = false;
+LedControl matrix = LedControl(DIN, LM_CLK, CS, 1);
 unsigned char display[8];
 const unsigned char numbers[][5] = { // numbers
   {
@@ -41,70 +41,70 @@ const unsigned char numbers[][5] = { // numbers
     B10100000,
     B10100000,
     B10100000,
-    B11100000  
+    B11100000
   },
   {
     B11100000,
     B01000000,
     B01000000,
     B01000000,
-    B11000000  
+    B11000000
   },
   {
     B11100000,
     B10000000,
     B11100000,
     B00100000,
-    B11100000  
+    B11100000
   },
   {
     B11100000,
     B00100000,
     B11100000,
     B00100000,
-    B11100000  
+    B11100000
   },
   {
     B00100000,
     B00100000,
     B11100000,
     B10100000,
-    B10100000  
+    B10100000
   },
   {
     B11100000,
     B00100000,
     B11100000,
     B10000000,
-    B11100000  
+    B11100000
   },
   {
     B11100000,
     B10100000,
     B11100000,
     B10000000,
-    B11100000  
+    B11100000
   },
   {
     B00100000,
     B00100000,
     B00100000,
     B10100000,
-    B11100000  
+    B11100000
   },
   {
     B11100000,
     B10100000,
     B11100000,
     B10100000,
-    B11100000  
+    B11100000
   },
   {
     B11100000,
     B00100000,
     B11100000,
     B10100000,
-    B11100000  
+    B11100000
   }
 };
 
@@ -125,13 +125,17 @@ void loop() {
   timer.tick();
 
   counter += encoder->getValue();
-  if(counter<MIN_COUNTER) counter = MIN_COUNTER;
-  if(counter>MAX_COUNTER) counter = MAX_COUNTER;
-  if (counter != last) {
-    last = value;
-  }
-  
+  if (counter < MIN_COUNTER) counter = MIN_COUNTER;
+  if (counter > MAX_COUNTER) counter = MAX_COUNTER;
+
   if (isKnobRotated()) {
+
+    lastRotation = millis();
+    if (sleeping) {
+      matrix.shutdown(0, false);
+      sleeping = false;
+    }
+
     if ( counter == 0 ) {
       play = false;
       stopTimer();
@@ -147,6 +151,12 @@ void loop() {
 
   // Remember last CLK state
   lastStateCLK = currentStateCLK;
+
+  if (timer.empty() && ((millis() - lastRotation) > 30000)) {
+    matrix.shutdown(0, true);      //sleep
+    sleeping = true;
+  }
+
   // Put in a slight delay to help debounce the reading
   delay(150);
 }
@@ -156,7 +166,7 @@ void initRotaryEncoder() {
   pinMode(CLK, INPUT);
   pinMode(DT, INPUT);
   pinMode(SW, INPUT_PULLUP);
-    
+
   // Read the initial state of CLK
   lastStateCLK = digitalRead(CLK);
   currentStateCLK = digitalRead(CLK);
@@ -165,13 +175,12 @@ void initRotaryEncoder() {
   encoder = new ClickEncoder(DT, CLK, SW);
   encoder->setAccelerationEnabled(true);
   Timer1.initialize(1000);
-  Timer1.attachInterrupt(timerIsr); 
-  last = -1;
+  Timer1.attachInterrupt(timerIsr);
 }
 
 void initDisplay() {
-  matrix.shutdown(0,false);       //The MAX72XX is in power-saving mode on startup
-  matrix.setIntensity(0,5);       // Set the brightness to maximum value
+  matrix.shutdown(0, false);      //The MAX72XX is in power-saving mode on startup
+  matrix.setIntensity(0, 5);      // Set the brightness to maximum value
   matrix.clearDisplay(0);         // and clear the display
 }
 
@@ -185,24 +194,6 @@ bool isKnobRotated() {
   return currentStateCLK != lastStateCLK  && currentStateCLK == 1;
 }
 
-bool isButtonPressed() {
-  // Read the button state
-  int btnState = digitalRead(SW);
-
-  //If we detect LOW signal, button is pressed
-  if (btnState == LOW) {
-    //if 50ms have passed since last LOW pulse, it means that the
-    //button has been pressed, released and pressed again
-    if (millis() - lastButtonPress > 50) {
-      return true;
-    }
-
-    // Remember last button press event
-    lastButtonPress = millis();
-  }
-  return false;
-}
-
 void startTimer() {
   timer.every(60000, countdown);
   timer.every(1000, blip);
@@ -213,12 +204,12 @@ void stopTimer() {
 }
 
 void blip() {
-  matrix.setColumn(0,7,B00000001);
+  matrix.setColumn(0, 7, B00000001);
 }
 
 void countdown() {
   reduceCounter();
-  if(counter == 0){
+  if (counter == 0) {
     play = true;
   }
 }
@@ -240,15 +231,15 @@ void handleAlarm() {
   }
 }
 
-void displayCounter(){
+void displayCounter() {
   int firstDigit = counter / 10;
   int secondDigit = counter % 10;
-  
-  for( int i = 0; i < 8; i++){
-    display[i] =0;
-    if(0 <= i && i < 5){
+
+  for ( int i = 0; i < 8; i++) {
+    display[i] = 0;
+    if (0 <= i && i < 5) {
       display[i] = numbers[firstDigit][i] | (numbers[secondDigit][i] >> 4);
     }
-    matrix.setColumn(0,i,display[i]); 
+    matrix.setColumn(0, i, display[i]);
   }
 }
