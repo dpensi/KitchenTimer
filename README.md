@@ -13,3 +13,5 @@ After 30 seconds of inactivity (doesn't count when the timer is running) the dis
 ## Schematics
 
  ![Schematics](/schematics.png)
+
+**Note:** resistor is probably not needed.
