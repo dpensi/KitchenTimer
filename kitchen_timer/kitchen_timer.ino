@@ -129,7 +129,7 @@ void loop() {
   // Remember last CLK state
   lastStateCLK = currentStateCLK;
   // Put in a slight delay to help debounce the reading
-  delay(1);
+  delay(10);
 }
 
 void initRotaryEncoder() {
@@ -240,17 +240,12 @@ int previousNumber = -1;
 void displayCounter(){
   int firstDigit = counter / 10;
   int secondDigit = counter % 10;
-  for( int i = 0; i < 8; i++){
-    display[i] =0;
-  }
-  for( int i = 0; i < 5; i++){
-    display[i] |= numbers[firstDigit][i];
-  }
-  for( int i = 0; i < 5; i++){
-    display[i] |= numbers[secondDigit][i] >> 4;
-  }
   
   for( int i = 0; i < 8; i++){
+    display[i] =0;
+    if(0 <= i && i < 5){
+      display[i] = numbers[firstDigit][i] | (numbers[secondDigit][i] >> 4);
+    }
     matrix.setColumn(0,i,display[i]); 
   }
   
