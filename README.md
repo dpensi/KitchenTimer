@@ -13,5 +13,6 @@ After 30 seconds of inactivity (doesn't count when the timer is running) the dis
 ## Schematics
 
  ![Schematics](/schematics.png)
+**Note:** resistor on led matrix ground is probably not needed.
 
-**Note:** resistor is probably not needed.
+ ![Schematics with standalone atmega](/schematics_stand_alone.png)
